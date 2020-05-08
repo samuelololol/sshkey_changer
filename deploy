@@ -1,5 +1,31 @@
 #!/bin/bash
 
+HELP_MSG="Use $ ./deploy [-f|--force]
+(The option '-f|--force' is used to replace key on target machine without
+confirmation)."
+
+if [ "$#" -gt 1  ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    echo "$HELP_MSG"
+    echo
+    exit 1
+fi
+
+if [ "$#" -eq 1 ] && [ ! "$1" == "-f" ] && [ ! "$1" == "--force" ]; then
+    echo "$HELP_MSG"
+    echo
+    exit 1
+fi
+
+RED='\033[1;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BWHITE='\033[0;37m'
+NC='\033[0m'
+
+function eko {
+    printf "${YELLOW}[deploy] ${GREEN}$@${NC}\n"
+}
+
 if [ ! -f "./newkey" ] || [ ! -f "./newkey.pub" ]; then
     echo "newkey not exist, please execute ./keygen to generate new key"
     echo ""
@@ -48,21 +74,22 @@ do
 
     if remote_cmd "$PWD" "$ACC" "$IP" test -e "$KEYFILE_FULL_PATH"; then
         if [ "$FORCE" == "false" ]; then
-            read -p "Do you want to remove $KEYFILE_FULL_PATH on $ACC@$IP (y/n)?" choice
+            printf "Do you want to remove ${RED}$KEYFILE_FULL_PATH*${NC} on ${YELLOW}$ACC@$IP${NC}"
+            read -p "(y/n)?" choice
             case "$choice" in
                 y|Y )
-                    echo "=> yes"
+                    eko "=> yes"
                     remote_cmd "$PWD" "$ACC" "$IP" rm -rf "$KEYFILE_FULL_PATH"*
-                    echo "Remove previous ""$KEYFILE_FULL_PATH"*
+                    printf "${YELLOW}[deploy] ${GREEN}Remove preivous ${RED}$KEYFILE_FULL_PATH*${NC} on ${YELLOW}$ACC@$IP${NC}\n"
                     ;;
                 * )
-                    echo "=> no"
-                    echo "The ssh key on $ACC@$IP is not changed"
+                    eko "=> no"
+                    eko "The ssh key on $ACC@$IP is not changed"
                     continue
                     ;;
             esac
         else
-            echo "Remove previous ""$KEYFILE_FULL_PATH"*
+            printf "${YELLOW}[deploy] ${GREEN}Remove preivous ${RED}$KEYFILE_FULL_PATH*${NC} on ${YELLOW}$ACC@$IP${NC}\n"
             remote_cmd "$PWD" "$ACC" "$IP" rm -rf "$KEYFILE_FULL_PATH"*
         fi
     fi
@@ -72,18 +99,18 @@ do
     fi
 
     if remote_copy ./newkey "$PORT" "$PWD" "$ACC" "$IP" "$KEYFILE_FULL_PATH"; then
-        echo "$KEYFILE_FULL_PATH"" on ""$ACC@$IP"" deployed."
+        eko "$KEYFILE_FULL_PATH"" on ""$ACC@$IP"" deployed."
     fi
 
     if remote_cmd "$PWD" "$ACC" "$IP" chmod 600 "$KEYFILE_FULL_PATH"; then
-        echo "$KEYFILE_FULL_PATH""'s file mode -> 600"
+        eko "$KEYFILE_FULL_PATH""'s file mode -> 600"
     fi
 
     if remote_copy ./newkey.pub "$PORT" "$PWD" "$ACC" "$IP" "$KEYFILE_FULL_PATH".pub; then
-        echo "$KEYFILE_FULL_PATH"".pub on ""$ACC@$IP"" deployed."
+        eko "$KEYFILE_FULL_PATH"".pub on ""$ACC@$IP"" deployed."
     fi
 
     if remote_cmd "$PWD" "$ACC" "$IP" chmod 644 "$KEYFILE_FULL_PATH".pub; then
-        echo "$KEYFILE_FULL_PATH"".pub's file mode -> 644"
+        eko "$KEYFILE_FULL_PATH"".pub's file mode -> 644"
     fi
 done
