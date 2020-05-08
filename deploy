@@ -63,7 +63,15 @@ do
         echo "$KEYFILE_FULL_PATH"" deployed."
     fi
 
+    if remote_cmd "$PWD" "$ACC" "$IP" chmod 600 "$KEYFILE_FULL_PATH"; then
+        echo "$KEYFILE_FULL_PATH""'s file mode -> 600"
+    fi
+
     if remote_copy ./newkey.pub "$PORT" "$PWD" "$ACC" "$IP" "$KEYFILE_FULL_PATH".pub; then
         echo "$KEYFILE_FULL_PATH"".pub deployed."
+    fi
+
+    if remote_cmd "$PWD" "$ACC" "$IP" chmod 644 "$KEYFILE_FULL_PATH".pub; then
+        echo "$KEYFILE_FULL_PATH""'s file mode -> 644"
     fi
 done
