@@ -6,6 +6,11 @@ if [ ! -f "./newkey" ] || [ ! -f "./newkey.pub" ]; then
     exit 1
 fi
 
+FORCE="false"
+if [ "$1" == "--force" ] || [ "$1" == "-f" ]; then
+    FORCE="true"
+fi
+
 parse_config () {
     SECTION=$1
     KEY=$2
@@ -18,7 +23,7 @@ remote_cmd () {
     ACC=$2
     IP=$3
     PARAM="${@:4}"
-    sshpass -p $PWD ssh -o StrictHostKeyChecking=no -t "$ACC"@"$IP" "$PARAM"
+    sshpass -p $PWD ssh -o StrictHostKeyChecking=no -t "$ACC"@"$IP" "$PARAM" 2>/dev/null
 }
 
 remote_copy () {
@@ -42,18 +47,24 @@ do
     KEYFILE_FULL_PATH=$(parse_config "$i" key_path ./config.ini)
 
     if remote_cmd "$PWD" "$ACC" "$IP" test -e "$KEYFILE_FULL_PATH"; then
-        read -p "Do you want to remove $KEYFILE_FULL_PATH on $ACC@$IP (y/n)?" choice
-        case "$choice" in
-            y|Y )
-                echo "=> yes"
-                remote_cmd "$PWD" "$ACC" "$IP" rm -rf "$KEYFILE_FULL_PATH"*
-                ;;
-            * )
-                echo "=> no"
-                echo "The ssh key on $ACC@$IP is not changed"
-                continue
-                ;;
-        esac
+        if [ "$FORCE" == "false" ]; then
+            read -p "Do you want to remove $KEYFILE_FULL_PATH on $ACC@$IP (y/n)?" choice
+            case "$choice" in
+                y|Y )
+                    echo "=> yes"
+                    remote_cmd "$PWD" "$ACC" "$IP" rm -rf "$KEYFILE_FULL_PATH"*
+                    echo "Remove previous ""$KEYFILE_FULL_PATH"*
+                    ;;
+                * )
+                    echo "=> no"
+                    echo "The ssh key on $ACC@$IP is not changed"
+                    continue
+                    ;;
+            esac
+        else
+            echo "Remove previous ""$KEYFILE_FULL_PATH"*
+            remote_cmd "$PWD" "$ACC" "$IP" rm -rf "$KEYFILE_FULL_PATH"*
+        fi
     fi
 
     if ! remote_cmd "$PWD" "$ACC" "$IP" test -e "${KEYFILE_FULL_PATH%.ssh*}.ssh"; then
@@ -61,7 +72,7 @@ do
     fi
 
     if remote_copy ./newkey "$PORT" "$PWD" "$ACC" "$IP" "$KEYFILE_FULL_PATH"; then
-        echo "$KEYFILE_FULL_PATH"" deployed."
+        echo "$KEYFILE_FULL_PATH"" on ""$ACC@$IP"" deployed."
     fi
 
     if remote_cmd "$PWD" "$ACC" "$IP" chmod 600 "$KEYFILE_FULL_PATH"; then
@@ -69,10 +80,10 @@ do
     fi
 
     if remote_copy ./newkey.pub "$PORT" "$PWD" "$ACC" "$IP" "$KEYFILE_FULL_PATH".pub; then
-        echo "$KEYFILE_FULL_PATH"".pub deployed."
+        echo "$KEYFILE_FULL_PATH"".pub on ""$ACC@$IP"" deployed."
     fi
 
     if remote_cmd "$PWD" "$ACC" "$IP" chmod 644 "$KEYFILE_FULL_PATH".pub; then
-        echo "$KEYFILE_FULL_PATH""'s file mode -> 644"
+        echo "$KEYFILE_FULL_PATH"".pub's file mode -> 644"
     fi
 done
