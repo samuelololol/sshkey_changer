@@ -1,0 +1,69 @@
+#!/bin/bash
+
+if [ ! -f "./newkey" ] || [ ! -f "./newkey.pub" ]; then
+    echo "newkey not exist, please execute ./keygen to generate new key"
+    echo ""
+    exit 1
+fi
+
+parse_config () {
+    SECTION=$1
+    KEY=$2
+    FILENAME=$3
+    sed -nr "/^\[$SECTION\]/ { :l /^$KEY[ ]*=/ { s/.*=[ ]*//; p; q; }; n; b l; }" "$FILENAME"
+}
+
+remote_cmd () {
+    PWD=$1
+    ACC=$2
+    IP=$3
+    PARAM="${@:4}"
+    sshpass -p $PWD ssh -o StrictHostKeyChecking=no -t "$ACC"@"$IP" "$PARAM"
+}
+
+remote_copy () {
+    SRC=$1
+    PORT=$2
+    PWD=$3
+    ACC=$4
+    IP=$5
+    DST=$6
+    sshpass -p $PWD scp -P $PORT -o StrictHostKeyChecking=no $SRC "$ACC"@"$IP":"$DST"
+}
+
+HOSTS=$(parse_config hosts hosts ./config.ini )
+
+for i in $(echo "$HOSTS" | sed "s/,/ /g")
+do
+    IP=$(parse_config "$i" ip ./config.ini)
+    PORT=$(parse_config "$i" port ./config.ini)
+    ACC=$(parse_config "$i" account ./config.ini)
+    PWD=$(parse_config "$i" password ./config.ini)
+    KEYNAME=$(parse_config "$i" keyname ./config.ini)
+    KEYFOLDER=$(parse_config "$i" ssh_folder ./config.ini)
+    KEYFILE_FULL_PATH="$KEYFOLDER""/""$KEYNAME"
+
+    #OUTPUT=$(remote_cmd $PWD $ACC $IP ls -l .ssh)
+    if remote_cmd "$PWD" "$ACC" "$IP" test -e "$KEYFILE_FULL_PATH"; then
+        read -r -p "Do you want to remove $KEYFILE_FULL_PATH on $ACC@$IP (y/n)?" choice
+        case "$choice" in
+            y|Y )
+                echo "=> yes"
+                remote_cmd "$PWD" "$ACC" "$IP" rm -rf "$KEYFILE_FULL_PATH"*
+                ;;
+            * )
+                echo "=> no"
+                echo "The ssh key on $ACC@$IP is not changed"
+                continue
+                ;;
+        esac
+    fi
+
+    if remote_copy ./newkey "$PORT" "$PWD" "$ACC" "$IP" "$KEYFILE_FULL_PATH"; then
+        echo "$KEYFILE_FULL_PATH"" deployed."
+    fi
+
+    if remote_copy ./newkey.pub "$PORT" "$PWD" "$ACC" "$IP" "$KEYFILE_FULL_PATH".pub; then
+        echo "$KEYFILE_FULL_PATH"".pub deployed."
+    fi
+done
