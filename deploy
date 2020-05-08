@@ -39,13 +39,10 @@ do
     PORT=$(parse_config "$i" port ./config.ini)
     ACC=$(parse_config "$i" account ./config.ini)
     PWD=$(parse_config "$i" password ./config.ini)
-    KEYNAME=$(parse_config "$i" keyname ./config.ini)
-    KEYFOLDER=$(parse_config "$i" ssh_folder ./config.ini)
-    KEYFILE_FULL_PATH="$KEYFOLDER""/""$KEYNAME"
+    KEYFILE_FULL_PATH=$(parse_config "$i" key_path ./config.ini)
 
-    #OUTPUT=$(remote_cmd $PWD $ACC $IP ls -l .ssh)
     if remote_cmd "$PWD" "$ACC" "$IP" test -e "$KEYFILE_FULL_PATH"; then
-        read -r -p "Do you want to remove $KEYFILE_FULL_PATH on $ACC@$IP (y/n)?" choice
+        read -p "Do you want to remove $KEYFILE_FULL_PATH on $ACC@$IP (y/n)?" choice
         case "$choice" in
             y|Y )
                 echo "=> yes"
@@ -57,6 +54,10 @@ do
                 continue
                 ;;
         esac
+    fi
+
+    if ! remote_cmd "$PWD" "$ACC" "$IP" test -e "${KEYFILE_FULL_PATH%.ssh*}.ssh"; then
+        remote_cmd "$PWD" "$ACC" "$IP" mkdir -p "${KEYFILE_FULL_PATH%.ssh*}.ssh"
     fi
 
     if remote_copy ./newkey "$PORT" "$PWD" "$ACC" "$IP" "$KEYFILE_FULL_PATH"; then
