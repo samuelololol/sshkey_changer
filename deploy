@@ -71,6 +71,7 @@ do
     ACC=$(parse_config "$i" account ./config.ini)
     PWD=$(parse_config "$i" password ./config.ini)
     KEYFILE_FULL_PATH=$(parse_config "$i" key_path ./config.ini)
+    COPY_ID=$(parse_config "$i" ssh-copy-id ./config.ini)
 
     if remote_cmd "$PWD" "$ACC" "$IP" test -e "$KEYFILE_FULL_PATH"; then
         if [ "$FORCE" == "false" ]; then
@@ -112,5 +113,12 @@ do
 
     if remote_cmd "$PWD" "$ACC" "$IP" chmod 644 "$KEYFILE_FULL_PATH".pub; then
         eko "$KEYFILE_FULL_PATH"".pub's file mode -> 644"
+    fi
+
+    # ssh-copy-id
+    if [ "$COPY_ID" == "true" ]; then
+        if sshpass -p "$PWD" ssh-copy-id "$ACC"@"$IP" 2>/dev/null; then
+            eko "ssh-copy-id on ${YELLOW}$ACC@$IP${NC}"
+        fi
     fi
 done
